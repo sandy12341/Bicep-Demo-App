@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Bicep Task Board</title>
+  <link rel="stylesheet" href="/styles.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <header class="topbar"><a href="/" class="brand"><span class="logo">B</span> BICEP / DELIVERY LAB</a><span class="pill">Infrastructure meets application</span></header>
+  <main>
+    <div id="local-banner" class="banner" hidden>LOCAL DEMO - In-memory tasks reset on restart. Azure resources are not connected.</div>
+    <section class="hero"><p class="eyebrow">BUILD. REVIEW. SHIP.</p><h1 id="app-title">Bicep Task Board</h1><p class="intro">Small tasks. Real infrastructure. A clear path from pull request to production.</p></section>
+    <section class="stats" aria-label="Task statistics"><div><span id="total-count">0</span><p>Total tasks</p></div><div><span id="open-count">0</span><p>Ready to tackle</p></div><div><span id="done-count">0</span><p>Completed</p></div></section>
+    <section class="board">
+      <div class="board-heading"><div><p class="eyebrow">YOUR WORKSPACE</p><h2>Make something happen.</h2></div><span id="task-count" class="pill">0 tasks</span></div>
+      <form id="task-form"><label class="sr-only" for="task-title">Task title</label><input id="task-title" name="title" placeholder="What would you like to ship next?" maxlength="120" required autocomplete="off"><button type="submit" id="add-button">+ Add task</button></form>
+      <p id="error" role="alert" hidden></p>
+      <nav class="filters" aria-label="Filter tasks"><button data-filter="all" aria-pressed="true">All tasks</button><button data-filter="open" aria-pressed="false">Open</button><button data-filter="done" aria-pressed="false">Completed</button><button id="refresh" class="refresh" type="button">Refresh</button></nav>
+      <ul id="tasks" aria-label="Tasks"></ul><p id="empty" class="empty" hidden>No tasks here. Start with one small step.</p>
+      <p id="announcement" class="sr-only" aria-live="polite"></p>
+    </section>
+    <section class="connections" aria-label="Deployment status"><div><span class="status-dot"></span><strong>Data store</strong><span id="storage-status">Checking...</span></div><div><strong>Key Vault</strong><span id="vault-status">Checking...</span></div><div><strong>Release</strong><code id="commit">Checking...</code></div></section>
+    <footer>Defined in Bicep. Delivered by GitHub Actions. <span>No secrets in source control.</span></footer>
+  </main>
+</body>
+</html>

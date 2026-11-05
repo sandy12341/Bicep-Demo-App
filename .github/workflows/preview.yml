@@ -1,0 +1,70 @@
+name: Approved PR what-if
+on:
+  workflow_dispatch:
+    inputs:
+      pr:
+        description: Same-repository PR number
+        required: true
+        type: string
+      commit:
+        description: Exact reviewed PR head SHA (40 hex characters)
+        required: true
+        type: string
+permissions:
+  contents: read
+  pull-requests: read
+concurrency:
+  group: taskboard-demo
+  cancel-in-progress: false
+jobs:
+  preview:
+    if: github.ref == 'refs/heads/main'
+    environment: demo-preview
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      pull-requests: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Verify the approved PR commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ inputs.pr }}
+          SHA: ${{ inputs.commit }}
+          REPOSITORY: ${{ github.repository }}
+        shell: pwsh
+        run: |
+          if ($env:PR -notmatch '^\d+$' -or $env:SHA -notmatch '^[a-f0-9]{40}$') { throw 'Invalid PR number or commit SHA.' }
+          $pr = gh api "repos/$env:REPOSITORY/pulls/$env:PR" | ConvertFrom-Json
+          if ($LASTEXITCODE -ne 0) { throw 'Cannot resolve PR.' }
+          if ($pr.head.repo.full_name -cne $env:REPOSITORY -or $pr.head.sha -cne $env:SHA -or $pr.state -ne 'open') {
+            throw 'Only the exact reviewed head commit of an open, same-repository PR can be previewed.'
+          }
+          "### Approved infrastructure preview`nPR #$env:PR / commit ``$env:SHA``" | Add-Content $env:GITHUB_STEP_SUMMARY
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ inputs.commit }}
+          path: candidate
+          persist-credentials: false
+      - uses: azure/login@8216e11d8cd9b42fe925c852af8e76311ff067ac # v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      - name: Preview Bicep only (never execute candidate scripts)
+        shell: pwsh
+        env:
+          SUBSCRIPTION: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+          RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
+          PRINCIPAL_ID: ${{ vars.AZURE_PRINCIPAL_ID }}
+          INSTANCE: ${{ vars.DEMO_INSTANCE }}
+          SHA: ${{ inputs.commit }}
+        run: |
+          ./scripts/Preview.ps1 -SubscriptionId $env:SUBSCRIPTION -ResourceGroupName $env:RESOURCE_GROUP `
+            -AutomationPrincipalId $env:PRINCIPAL_ID -InstanceName $env:INSTANCE `
+            -AppCommit $env:SHA -TemplateFile candidate/infra/main.bicep
+          'Review the what-if step logs. This is a prediction, not a deployment guarantee.' | Add-Content $env:GITHUB_STEP_SUMMARY

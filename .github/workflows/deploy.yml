@@ -1,0 +1,85 @@
+name: Deploy core
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: taskboard-demo
+  cancel-in-progress: false
+jobs:
+  setup-status:
+    if: github.ref == 'refs/heads/main' && vars.AZURE_CLIENT_ID == ''
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Azure deployment is not configured. Complete bootstrap and repository variables in README.md; no Azure resources were changed." >> "$GITHUB_STEP_SUMMARY"
+  build:
+    if: github.ref == 'refs/heads/main' && vars.AZURE_CLIENT_ID != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npm run validate
+      - run: npm run test:storage
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:browser
+      - shell: pwsh
+        run: ./scripts/Package.ps1
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: app-${{ github.sha }}
+          path: artifacts/app.zip
+          retention-days: 7
+          if-no-files-found: error
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: app-${{ github.sha }}
+          path: artifacts
+      - uses: azure/login@8216e11d8cd9b42fe925c852af8e76311ff067ac # v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      - name: Preview and deploy
+        shell: pwsh
+        env:
+          SUBSCRIPTION: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+          RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
+          PRINCIPAL_ID: ${{ vars.AZURE_PRINCIPAL_ID }}
+          INSTANCE: ${{ vars.DEMO_INSTANCE }}
+          COMMIT: ${{ github.sha }}
+        run: |
+          $parameters = @{
+            SubscriptionId = $env:SUBSCRIPTION
+            ResourceGroupName = $env:RESOURCE_GROUP
+            AutomationPrincipalId = $env:PRINCIPAL_ID
+            InstanceName = $env:INSTANCE
+            AppCommit = $env:COMMIT
+          }
+          ./scripts/Preview.ps1 @parameters
+          ./scripts/Deploy.ps1 @parameters -PackagePath artifacts/app.zip

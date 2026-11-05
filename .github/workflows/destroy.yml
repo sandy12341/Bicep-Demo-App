@@ -1,0 +1,36 @@
+name: Destroy core
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: Exact application resource group name (deletes all task data)
+        required: true
+        type: string
+permissions:
+  contents: read
+  id-token: write
+concurrency:
+  group: taskboard-demo
+  cancel-in-progress: false
+jobs:
+  destroy:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: azure/login@8216e11d8cd9b42fe925c852af8e76311ff067ac # v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      - shell: pwsh
+        env:
+          SUBSCRIPTION: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+          RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
+          CONFIRMATION: ${{ inputs.confirmation }}
+        run: |
+          ./scripts/Destroy.ps1 -SubscriptionId $env:SUBSCRIPTION -ResourceGroupName $env:RESOURCE_GROUP `
+            -ConfirmResourceGroup $env:CONFIRMATION

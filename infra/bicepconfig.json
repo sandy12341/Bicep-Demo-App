@@ -1,0 +1,15 @@
+{
+  "analyzers": {
+    "core": {
+      "enabled": true,
+      "rules": {
+        "secure-secrets-in-params": {
+          "level": "error"
+        },
+        "no-unused-params": {
+          "level": "error"
+        }
+      }
+    }
+  }
+}

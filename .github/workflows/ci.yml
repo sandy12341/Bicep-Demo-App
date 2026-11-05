@@ -1,0 +1,42 @@
+name: PR checks
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  validate:
+    name: Validate core
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npm run validate
+      - run: npm run test:storage
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:browser
+      - name: Validate Bicep
+        run: |
+          mkdir -p artifacts
+          az bicep build --file infra/main.bicep --outfile artifacts/main.json
+          az bicep build --file infra/bootstrap.bicep --outfile artifacts/bootstrap-template.json
+          az bicep build-params --file infra/demo.bicepparam --outfile artifacts/params.json
+      - name: Parse PowerShell scripts
+        shell: pwsh
+        run: |
+          $failed = $false
+          Get-ChildItem scripts/*.ps1 | ForEach-Object {
+            $tokens = $null; $errors = $null
+            [System.Management.Automation.Language.Parser]::ParseFile($_.FullName, [ref]$tokens, [ref]$errors) | Out-Null
+            if ($errors.Count) { $errors | Out-String | Write-Error; $failed = $true }
+          }
+          if ($failed) { exit 1 }
