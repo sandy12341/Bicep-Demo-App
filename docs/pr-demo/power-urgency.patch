@@ -1,0 +1,161 @@
+diff --git a/src/public/app.js b/src/public/app.js
+index 74b416b..fe16321 100644
+--- a/src/public/app.js
++++ b/src/public/app.js
+@@ -48,9 +48,11 @@ function render() {
+   byId('repair-count').textContent = incidents.filter((incident) => incident.status === 'in-repair').length;
+   byId('resolved-count').textContent = incidents.filter((incident) => incident.status === 'resolved').length;
+   byId('available-count').textContent = loaners.filter((loaner) => !loaner.incidentId).length;
++  byId('urgent-count').textContent = incidents.filter((incident) => incident.priority === 'urgent').length;
+   const shown = incidents.filter((incident) =>
+     (byId('school-filter').value === 'all' || incident.schoolId === byId('school-filter').value)
+-    && (byId('status-filter').value === 'all' || incident.status === byId('status-filter').value));
++    && (byId('status-filter').value === 'all' || incident.status === byId('status-filter').value)
++    && (byId('priority-filter').value === 'all' || incident.priority === byId('priority-filter').value));
+   byId('incident-count').textContent = `${shown.length} incidents shown / ${incidents.length} district-wide`;
+   byId('incidents').replaceChildren();
+   byId('empty').hidden = shown.length > 0;
+@@ -136,7 +138,7 @@ byId('incident-form').addEventListener('submit', (event) => {
+     byId('asset-tag').value = '';
+   });
+ });
+-for (const id of ['school-filter', 'status-filter']) byId(id).addEventListener('change', render);
++for (const id of ['school-filter', 'status-filter', 'priority-filter']) byId(id).addEventListener('change', render);
+ byId('refresh').addEventListener('click', () => mutate(async () => {}));
+ async function initialize() {
+   const [info, nextCatalog] = await Promise.all([request('/api/info'), request('/api/catalog')]);
+diff --git a/src/public/index.html b/src/public/index.html
+index 2064fd2..a867198 100644
+--- a/src/public/index.html
++++ b/src/public/index.html
+@@ -18,6 +18,7 @@
+       <div><span id="repair-count">0</span><p>In repair</p></div>
+       <div><span id="resolved-count">0</span><p>Resolved</p></div>
+       <div><span id="available-count">0</span><p>Available loaners</p></div>
++      <div><span id="urgent-count">0</span><p>Urgent unresolved incidents - district-wide</p></div>
+     </section>
+     <section class="board">
+       <div class="board-heading"><div><p class="eyebrow">REPORT A DEVICE ISSUE</p><h2>Get the repair started.</h2></div><span class="pill">Fictional district</span></div>
+@@ -32,6 +33,7 @@
+       <div class="filters" aria-label="Filter incidents">
+         <div class="field"><label for="school-filter">Filter by school</label><select id="school-filter"><option value="all">All schools</option></select></div>
+         <div class="field"><label for="status-filter">Filter by status</label><select id="status-filter"><option value="all">All statuses</option></select></div>
++        <div class="field"><label for="priority-filter">Filter by priority</label><select id="priority-filter"><option value="all">All priorities</option><option value="urgent">Urgent</option></select></div>
+         <button id="refresh" type="button" disabled>Refresh</button>
+       </div>
+       <p id="incident-count" class="muted">0 incidents shown</p>
+diff --git a/src/public/styles.css b/src/public/styles.css
+index 647849d..2f6ece0 100644
+--- a/src/public/styles.css
++++ b/src/public/styles.css
+@@ -14,6 +14,7 @@ main, .topbar { max-width: 1140px; margin: auto; padding: 24px; }
+ .brand { color: var(--text); text-decoration: none; font-weight: 750; letter-spacing: 1px; }
+ .logo { background: var(--accent); color: var(--bg); border-radius: 8px; padding: 8px; margin-right: 12px; }
+ .pill, .priority { border: 1px solid var(--line); border-radius: 18px; padding: 3px 10px; font-size: 12px; }
++.priority.urgent { background: #493514; color: #ffe0a4; border-color: #9c7537; font-weight: 750; }
+ .banner { padding: 12px 16px; background: #493514; border: 1px solid #9c7537; color: #ffe0a4; border-radius: 9px; margin-bottom: 14px; font-size: 13px; }
+ .hero { padding: 24px 0; }
+ .eyebrow { color: var(--accent); font-size: 12px; font-weight: 750; letter-spacing: 1px; margin: 0 0 8px; }
+diff --git a/src/store.ts b/src/store.ts
+index d4be5a2..42ea00b 100644
+--- a/src/store.ts
++++ b/src/store.ts
+@@ -34,7 +34,7 @@ export interface Loaner {
+ }
+ 
+ // Keep this line shared by the independent power and screen demonstration PRs.
+-const urgentCategories: readonly IssueCategory[] = [];
++const urgentCategories: readonly IssueCategory[] = ['power'];
+ export function presentIncident(incident: Incident) {
+   return { ...incident, priority: incident.status !== 'resolved' && urgentCategories.includes(incident.category) ? 'urgent' : 'standard' };
+ }
+diff --git a/tests/power-browser.spec.ts b/tests/power-browser.spec.ts
+new file mode 100644
+index 0000000..4ad9159
+--- /dev/null
++++ b/tests/power-browser.spec.ts
+@@ -0,0 +1,44 @@
++import { test, expect } from '@playwright/test';
++
++test('urgent power badge, exact counts, intersecting filters and repair/resolve/reopen', async ({ page, request }) => {
++  const incidents = await (await request.get('/api/incidents')).json();
++  const screen = incidents.find((incident: { assetTag: string }) => incident.assetTag === 'DEMO-CB-202');
++  const screenCount = screen.priority === 'urgent' ? 1 : 0;
++  const urgentCount = String(1 + screenCount);
++  await page.goto('/');
++  await expect(page.locator('#urgent-count')).toHaveText(urgentCount);
++  const row = page.locator('[data-incident-id="10000000-0000-4000-8000-000000000001"]');
++  await expect(row.locator('.priority')).toHaveText('Urgent');
++  await expect(page.locator('[data-incident-id="10000000-0000-4000-8000-000000000005"] .priority')).toHaveText('Standard');
++  await page.getByLabel('Filter by priority', { exact: true }).selectOption('urgent');
++  await expect(page.locator('#incidents > li')).toHaveCount(1 + screenCount);
++  await page.getByLabel('Filter by school', { exact: true }).selectOption('north');
++  await expect(page.locator('#incidents > li')).toHaveCount(1);
++  await expect(page.locator('#urgent-count')).toHaveText(urgentCount);
++  await page.getByLabel('Filter by school', { exact: true }).selectOption('west');
++  await expect(page.locator('#empty')).toBeVisible();
++  await page.getByLabel('Filter by school', { exact: true }).selectOption('all');
++  await page.getByLabel('Filter by status', { exact: true }).selectOption('resolved');
++  await expect(page.locator('#empty')).toBeVisible();
++  await page.getByLabel('Filter by status', { exact: true }).selectOption('all');
++  await page.getByLabel('Filter by priority', { exact: true }).selectOption('all');
++  try {
++    await row.getByRole('button', { name: 'Start repair DEMO-CB-101', exact: true }).click();
++    await expect(page.locator('#urgent-count')).toHaveText(urgentCount);
++    await row.getByRole('button', { name: 'Resolve DEMO-CB-101', exact: true }).click();
++    await expect(row.locator('.priority')).toHaveText('Standard');
++    await expect(page.locator('#urgent-count')).toHaveText(String(screenCount));
++    await row.getByRole('button', { name: 'Reopen DEMO-CB-101', exact: true }).click();
++    await expect(row.locator('.priority')).toHaveText('Urgent');
++    await expect(page.locator('#urgent-count')).toHaveText(urgentCount);
++  } finally {
++    const current = (await (await request.get('/api/incidents')).json()).find((incident: { assetTag: string }) => incident.assetTag === 'DEMO-CB-101');
++    if (current.status === 'in-repair') {
++      expect((await request.patch(`/api/incidents/${current.id}`, { data: { status: 'resolved' } })).ok()).toBe(true);
++      expect((await request.patch(`/api/incidents/${current.id}`, { data: { status: 'open' } })).ok()).toBe(true);
++    } else if (current.status === 'resolved') {
++      expect((await request.patch(`/api/incidents/${current.id}`, { data: { status: 'open' } })).ok()).toBe(true);
++    }
++  }
++  expect(await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth)).toBe(false);
++});
+diff --git a/tests/power-priority.test.ts b/tests/power-priority.test.ts
+new file mode 100644
+index 0000000..9a9e9bf
+--- /dev/null
++++ b/tests/power-priority.test.ts
+@@ -0,0 +1,34 @@
++import assert from 'node:assert/strict';
++import test from 'node:test';
++import request from 'supertest';
++import { createApp } from '../src/app.js';
++import { incidentStatuses, MemoryIncidentStore, presentIncident, sampleIncidents } from '../src/store.js';
++
++test('power policy is urgent only while unresolved; unrelated categories remain Standard', () => {
++  const fixture = sampleIncidents();
++  const power = fixture.find((incident) => incident.category === 'power')!;
++  for (const status of incidentStatuses) {
++    assert.equal(presentIncident({ ...power, status }).priority, status === 'resolved' ? 'standard' : 'urgent');
++  }
++  for (const category of ['keyboard', 'connectivity'] as const) {
++    for (const status of incidentStatuses) assert.equal(presentIncident({ ...power, category, status }).priority, 'standard');
++  }
++  assert.equal(fixture.filter((incident) => incident.category === 'power' && presentIncident(incident).priority === 'urgent').length, 1);
++});
++
++test('power priority is consistent on create, list, repair, resolution and reopening', async () => {
++  const store = new MemoryIncidentStore();
++  const app = createApp(store, { title: 'Classroom Ready', commit: 'power-pr', integrationSecret: 'fake', localDemo: true });
++  const body = { schoolId: 'north', assetTag: 'DEMO-POWER-PR', deviceType: 'chromebook', category: 'power' };
++  const created = (await request(app).post('/api/incidents').send(body).expect(201)).body;
++  assert.equal(created.priority, 'urgent');
++  const original = (await store.list()).find((incident) => incident.id === created.id)!;
++  const saved = (await request(app).get('/api/incidents').expect(200)).body.find((incident: { id: string }) => incident.id === created.id);
++  assert.equal(saved.priority, 'urgent');
++  assert.deepEqual((await store.list()).find((incident) => incident.id === created.id), original);
++  assert.ok(!('priority' in original));
++  for (const [status, priority] of [['in-repair', 'urgent'], ['resolved', 'standard'], ['open', 'urgent']]) {
++    const updated = (await request(app).patch(`/api/incidents/${created.id}`).send({ status }).expect(200)).body;
++    assert.equal(updated.priority, priority);
++  }
++});

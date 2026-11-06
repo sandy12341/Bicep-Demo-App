@@ -10,7 +10,7 @@ export default defineConfig({
     command: 'node dist/server.js',
     url: 'http://127.0.0.1:3100/healthz',
     reuseExistingServer: false,
-    env: { PORT: '3100', DEMO_MODE: 'true', APP_COMMIT: 'browser-test', DEMO_INTEGRATION_SECRET: 'fake-local-secret' },
+    env: { PORT: '3100', DEMO_MODE: 'true', APP_TITLE: 'Classroom Ready', APP_COMMIT: 'browser-test', DEMO_INTEGRATION_SECRET: 'fake-local-secret' },
   },
   projects: [
     { name: 'desktop', use: { ...devices['Desktop Chrome'] } },

@@ -8,7 +8,7 @@ $null = Assert-Subscription $SubscriptionId
 $null = Assert-OwnedGroup $SubscriptionId $ResourceGroupName
 if ($ConfirmResourceGroup -cne $ResourceGroupName) { throw 'Teardown requires an exact resource group confirmation.' }
 if ($ResourceGroupName -match '(?i)bootstrap') { throw 'This command never deletes bootstrap groups. Use separately authorized cleanup.' }
-Write-Warning "Deleting $ResourceGroupName, including ALL task data. Key Vault remains soft-deleted and purge-protected."
+Write-Warning "Deleting $ResourceGroupName, including ALL incident and loaner data. Key Vault remains soft-deleted and purge-protected."
 $apps = @(Invoke-Az @('webapp', 'list', '--subscription', $SubscriptionId, '--resource-group', $ResourceGroupName, '-o', 'json') | ConvertFrom-Json)
 foreach ($app in $apps) {
     if ($app.virtualNetworkSubnetId) {

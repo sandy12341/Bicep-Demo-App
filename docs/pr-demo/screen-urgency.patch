@@ -1,0 +1,50 @@
+diff --git a/src/store.ts b/src/store.ts
+index d4be5a2..864edfb 100644
+--- a/src/store.ts
++++ b/src/store.ts
+@@ -34,7 +34,7 @@ export interface Loaner {
+ }
+ 
+ // Keep this line shared by the independent power and screen demonstration PRs.
+-const urgentCategories: readonly IssueCategory[] = [];
++const urgentCategories: readonly IssueCategory[] = ['screen'];
+ export function presentIncident(incident: Incident) {
+   return { ...incident, priority: incident.status !== 'resolved' && urgentCategories.includes(incident.category) ? 'urgent' : 'standard' };
+ }
+diff --git a/tests/screen-priority.test.ts b/tests/screen-priority.test.ts
+new file mode 100644
+index 0000000..8302151
+--- /dev/null
++++ b/tests/screen-priority.test.ts
+@@ -0,0 +1,31 @@
++import assert from 'node:assert/strict';
++import test from 'node:test';
++import request from 'supertest';
++import { createApp } from '../src/app.js';
++import { incidentStatuses, MemoryIncidentStore, presentIncident, sampleIncidents } from '../src/store.js';
++
++test('screen policy is urgent only while unresolved; unrelated categories remain Standard', () => {
++  const fixture = sampleIncidents();
++  const screen = fixture.find((incident) => incident.category === 'screen')!;
++  for (const status of incidentStatuses) {
++    assert.equal(presentIncident({ ...screen, status }).priority, status === 'resolved' ? 'standard' : 'urgent');
++  }
++  for (const category of ['keyboard', 'connectivity'] as const) {
++    for (const status of incidentStatuses) assert.equal(presentIncident({ ...screen, category, status }).priority, 'standard');
++  }
++  assert.equal(fixture.filter((incident) => incident.category === 'screen' && presentIncident(incident).priority === 'urgent').length, 1);
++});
++
++test('screen priority is consistent on create, list, repair, resolution and reopening', async () => {
++  const app = createApp(new MemoryIncidentStore(), { title: 'Classroom Ready', commit: 'screen-pr', integrationSecret: 'fake', localDemo: true });
++  const created = (await request(app).post('/api/incidents').send({
++    schoolId: 'east', assetTag: 'DEMO-SCREEN-PR', deviceType: 'chromebook', category: 'screen',
++  }).expect(201)).body;
++  assert.equal(created.priority, 'urgent');
++  const saved = (await request(app).get('/api/incidents').expect(200)).body.find((incident: { id: string }) => incident.id === created.id);
++  assert.equal(saved.priority, 'urgent');
++  for (const [status, priority] of [['in-repair', 'urgent'], ['resolved', 'standard'], ['open', 'urgent']]) {
++    const updated = (await request(app).patch(`/api/incidents/${created.id}`).send({ status }).expect(200)).body;
++    assert.equal(updated.priority, priority);
++  }
++});

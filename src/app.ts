@@ -2,7 +2,10 @@ import express, { type ErrorRequestHandler } from 'express';
 import helmet from 'helmet';
 import { rateLimit } from 'express-rate-limit';
 import { fileURLToPath } from 'node:url';
-import { TaskLimitError, type TaskStore } from './store.js';
+import {
+  deviceTypes, DomainError, incidentStatuses, isId, isOneOf, issueCategories,
+  parseIncidentInput, presentIncident, schools, type IncidentStore,
+} from './store.js';
 
 export interface AppOptions {
   title: string;
@@ -11,7 +14,7 @@ export interface AppOptions {
   localDemo: boolean;
 }
 
-export function createApp(store: TaskStore, options: AppOptions) {
+export function createApp(store: IncidentStore, options: AppOptions) {
   const app = express();
   app.disable('x-powered-by');
   if (process.env.WEBSITE_SITE_NAME) app.set('trust proxy', 1);
@@ -38,38 +41,44 @@ export function createApp(store: TaskStore, options: AppOptions) {
   app.get('/api/info', async (_req, res) => {
     res.json({ title: options.title, commit: options.commit, localDemo: options.localDemo, ...(await dependencyState()) });
   });
-  app.get('/api/tasks', async (_req, res) => { res.json(await store.list()); });
-  app.post('/api/tasks', mutations, async (req, res) => {
-    const title: unknown = req.body?.title;
-    if (typeof title !== 'string' || title.trim().length < 1 || title.trim().length > 120) {
-      res.status(400).json({ error: 'Enter a task title between 1 and 120 characters.' }); return;
-    }
-    res.status(201).json(await store.create(title.trim()));
+  app.get('/api/catalog', (_req, res) => { res.json({ schools, deviceTypes, issueCategories, incidentStatuses }); });
+  app.get('/api/loaners', async (_req, res) => { res.json(await store.loaners()); });
+  app.get('/api/incidents', async (_req, res) => { res.json((await store.list()).map(presentIncident)); });
+  app.post('/api/incidents', mutations, async (req, res) => {
+    res.status(201).json(presentIncident(await store.create(parseIncidentInput(req.body))));
   });
-  app.use('/api/tasks/:id', (req, res, next) => {
-    if (!/^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(req.params.id)) {
-      res.status(400).json({ error: 'Invalid task ID.' }); return;
+  app.use('/api/incidents/:id', (req, res, next) => {
+    if (!isId(req.params.id)) {
+      res.status(400).json({ error: 'Invalid incident ID.' }); return;
     }
     next();
   });
-  app.patch('/api/tasks/:id', mutations, async (req, res) => {
-    if (typeof req.params.id !== 'string') { res.status(400).json({ error: 'Invalid task ID.' }); return; }
-    if (typeof req.body?.completed !== 'boolean') {
-      res.status(400).json({ error: 'completed must be true or false.' }); return;
+  app.patch('/api/incidents/:id', mutations, async (req, res) => {
+    if (!isId(req.params.id)) throw new DomainError('Invalid incident ID.', 400);
+    if (!isOneOf(incidentStatuses, req.body?.status) || Object.keys(req.body).length !== 1) {
+      throw new DomainError('Supply only a valid incident status.', 400);
     }
-    const task = await store.update(req.params.id, req.body.completed);
-    if (!task) { res.status(404).json({ error: 'Task not found.' }); return; }
-    res.json(task);
+    res.json(presentIncident(await store.update(req.params.id, req.body.status)));
   });
-  app.delete('/api/tasks/:id', mutations, async (req, res) => {
-    if (typeof req.params.id !== 'string') { res.status(400).json({ error: 'Invalid task ID.' }); return; }
-    if (!await store.delete(req.params.id)) { res.status(404).json({ error: 'Task not found.' }); return; }
+  app.post('/api/incidents/:id/loaner', mutations, async (req, res) => {
+    if (!isId(req.params.id) || !isId(req.body?.loanerId) || Object.keys(req.body).length !== 1) {
+      throw new DomainError('Supply only a valid incident and loaner ID.', 400);
+    }
+    res.json(presentIncident(await store.assign(req.params.id, req.body.loanerId)));
+  });
+  app.delete('/api/incidents/:id/loaner', mutations, async (req, res) => {
+    if (!isId(req.params.id)) throw new DomainError('Invalid incident ID.', 400);
+    res.json(presentIncident(await store.returnLoaner(req.params.id)));
+  });
+  app.delete('/api/incidents/:id', mutations, async (req, res) => {
+    if (!isId(req.params.id)) throw new DomainError('Invalid incident ID.', 400);
+    await store.delete(req.params.id);
     res.status(204).end();
   });
   app.use('/api', (_req, res) => { res.status(404).json({ error: 'Endpoint not found.' }); });
   app.use(express.static(fileURLToPath(new URL('./public', import.meta.url)), { index: 'index.html' }));
   const onError: ErrorRequestHandler = (error: unknown, _req, res, _next) => {
-    if (error instanceof TaskLimitError) { res.status(409).json({ error: error.message }); return; }
+    if (error instanceof DomainError) { res.status(error.statusCode).json({ error: error.message }); return; }
     if (error instanceof SyntaxError) { res.status(400).json({ error: 'Invalid JSON body.' }); return; }
     if (typeof error === 'object' && error && 'type' in error && error.type === 'entity.too.large') {
       res.status(413).json({ error: 'Request body is too large.' }); return;

@@ -3,26 +3,48 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Bicep Task Board</title>
+  <title>Classroom Ready</title>
   <link rel="stylesheet" href="/styles.css">
   <script src="/app.js" defer></script>
 </head>
 <body>
-  <header class="topbar"><a href="/" class="brand"><span class="logo">B</span> BICEP / DELIVERY LAB</a><span class="pill">Infrastructure meets application</span></header>
+  <header class="topbar"><a href="/" class="brand"><span class="logo">CR</span> CLASSROOM READY</a><span class="pill">District device support</span></header>
   <main>
-    <div id="local-banner" class="banner" hidden>LOCAL DEMO - In-memory tasks reset on restart. Azure resources are not connected.</div>
-    <section class="hero"><p class="eyebrow">BUILD. REVIEW. SHIP.</p><h1 id="app-title">Bicep Task Board</h1><p class="intro">Small tasks. Real infrastructure. A clear path from pull request to production.</p></section>
-    <section class="stats" aria-label="Task statistics"><div><span id="total-count">0</span><p>Total tasks</p></div><div><span id="open-count">0</span><p>Ready to tackle</p></div><div><span id="done-count">0</span><p>Completed</p></div></section>
+    <div class="banner">SYNTHETIC DATA ONLY - Fictional schools and DEMO- asset tags. No student information. This unauthenticated demo lets all visitors modify records.</div>
+    <div id="local-banner" class="banner" hidden>LOCAL DEMO - Incidents and loaners reset on restart. Azure resources are not connected.</div>
+    <section class="hero"><p class="eyebrow">KEEP CLASSROOM DEVICES IN SERVICE</p><h1 id="app-title">Classroom Ready</h1><p class="intro">District Device Support. Track repairs, issue compatible loaners, and return equipment before resolving an incident.</p></section>
+    <section class="stats" aria-label="District-wide statistics">
+      <div><span id="open-count">0</span><p>Open incidents</p></div>
+      <div><span id="repair-count">0</span><p>In repair</p></div>
+      <div><span id="resolved-count">0</span><p>Resolved</p></div>
+      <div><span id="available-count">0</span><p>Available loaners</p></div>
+    </section>
     <section class="board">
-      <div class="board-heading"><div><p class="eyebrow">YOUR WORKSPACE</p><h2>Make something happen.</h2></div><span id="task-count" class="pill">0 tasks</span></div>
-      <form id="task-form"><label class="sr-only" for="task-title">Task title</label><input id="task-title" name="title" placeholder="What would you like to ship next?" maxlength="120" required autocomplete="off"><button type="submit" id="add-button">+ Add task</button></form>
+      <div class="board-heading"><div><p class="eyebrow">REPORT A DEVICE ISSUE</p><h2>Get the repair started.</h2></div><span class="pill">Fictional district</span></div>
+      <form id="incident-form">
+        <div class="field"><label for="school">School</label><select id="school" name="schoolId" required></select></div>
+        <div class="field"><label for="asset-tag">Synthetic device asset tag</label><input id="asset-tag" name="assetTag" placeholder="DEMO-CB-106" pattern="DEMO-[A-Z0-9-]{1,20}" maxlength="25" required autocomplete="off"></div>
+        <div class="field"><label for="device-type">Device type</label><select id="device-type" name="deviceType" required></select></div>
+        <div class="field"><label for="category">Issue category</label><select id="category" name="category" required></select></div>
+        <button type="submit" id="report-button" disabled>Report incident</button>
+      </form>
       <p id="error" role="alert" hidden></p>
-      <nav class="filters" aria-label="Filter tasks"><button data-filter="all" aria-pressed="true">All tasks</button><button data-filter="open" aria-pressed="false">Open</button><button data-filter="done" aria-pressed="false">Completed</button><button id="refresh" class="refresh" type="button">Refresh</button></nav>
-      <ul id="tasks" aria-label="Tasks"></ul><p id="empty" class="empty" hidden>No tasks here. Start with one small step.</p>
+      <div class="filters" aria-label="Filter incidents">
+        <div class="field"><label for="school-filter">Filter by school</label><select id="school-filter"><option value="all">All schools</option></select></div>
+        <div class="field"><label for="status-filter">Filter by status</label><select id="status-filter"><option value="all">All statuses</option></select></div>
+        <button id="refresh" type="button" disabled>Refresh</button>
+      </div>
+      <p id="incident-count" class="muted">0 incidents shown</p>
+      <ul id="incidents" aria-label="Device incidents"></ul>
+      <p id="empty" class="empty" hidden>No incidents match these filters.</p>
       <p id="announcement" class="sr-only" aria-live="polite"></p>
     </section>
-    <section class="connections" aria-label="Deployment status"><div><span class="status-dot"></span><strong>Data store</strong><span id="storage-status">Checking...</span></div><div><strong>Key Vault</strong><span id="vault-status">Checking...</span></div><div><strong>Release</strong><code id="commit">Checking...</code></div></section>
-    <footer>Defined in Bicep. Delivered by GitHub Actions. <span>No secrets in source control.</span></footer>
+    <section class="board inventory">
+      <p class="eyebrow">SHARED DISTRICT POOL</p><h2>Loaner availability</h2>
+      <ul id="loaners" aria-label="Loaner inventory"></ul>
+    </section>
+    <section class="connections" aria-label="Deployment status"><div><strong>Data store</strong><span id="storage-status">Checking...</span></div><div><strong>Key Vault</strong><span id="vault-status">Checking...</span></div><div><strong>Release</strong><code id="commit">Checking...</code></div></section>
+    <footer>Defined in Bicep. Delivered by GitHub Actions. <span>Demonstration only, not a student-record system.</span></footer>
   </main>
 </body>
 </html>

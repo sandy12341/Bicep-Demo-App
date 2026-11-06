@@ -30,6 +30,9 @@ function Assert-OwnedGroup {
     Assert-Identifier $ResourceGroupName 'resource group name'
     $group = Invoke-Az @('group', 'show', '--subscription', $SubscriptionId, '--name', $ResourceGroupName, '-o', 'json') | ConvertFrom-Json
     if ($group.tags.demo -ne 'bicep-taskboard') { throw 'Refusing to operate on a group without the bicep-taskboard ownership tag.' }
+    if ($null -eq $group.tags.PSObject.Properties['workload'] -or $group.tags.workload -cne 'classroom-ready') {
+        throw 'Refusing to operate on a legacy/non-EDU group. Bootstrap a fresh Classroom Ready instance; do not retag the old task board.'
+    }
     return $group
 }
 

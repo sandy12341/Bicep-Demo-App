@@ -4,16 +4,17 @@ targetScope = 'subscription'
 param location string = 'westus3'
 
 @description('Lowercase deployment instance identifier.')
-param instanceName string = 'tbcore1'
+param instanceName string = 'educr1'
 
 @description('Exact repository OIDC subject prefix returned by the GitHub OIDC customization API.')
 param githubSubjectPrefix string
 
-param resourceGroupName string = 'rg-taskboard-demo'
-param bootstrapResourceGroupName string = 'rg-taskboard-bootstrap'
+param resourceGroupName string = 'rg-classroomready-demo'
+param bootstrapResourceGroupName string = 'rg-classroomready-bootstrap'
 
 var tags = {
   demo: 'bicep-taskboard'
+  workload: 'classroom-ready'
   environment: 'demo'
   instance: instanceName
 }

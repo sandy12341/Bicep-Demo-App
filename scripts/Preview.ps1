@@ -2,8 +2,8 @@ param(
     [Parameter(Mandatory)][string]$SubscriptionId,
     [Parameter(Mandatory)][string]$ResourceGroupName,
     [Parameter(Mandatory)][string]$AutomationPrincipalId,
-    [ValidatePattern('^[a-z0-9]{3,12}$')][string]$InstanceName = 'tbcore1',
-    [string]$AppTitle = 'Bicep Task Board',
+    [ValidatePattern('^[a-z0-9]{3,12}$')][string]$InstanceName = 'educr1',
+    [string]$AppTitle = 'Classroom Ready',
     [ValidatePattern('^[a-zA-Z0-9._-]{1,64}$')][string]$AppCommit = 'preview',
     [string]$TemplateFile
 )

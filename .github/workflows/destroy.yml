@@ -3,7 +3,7 @@ on:
   workflow_dispatch:
     inputs:
       confirmation:
-        description: Exact application resource group name (deletes all task data)
+        description: Exact EDU application resource group name (deletes all incident and loaner data)
         required: true
         type: string
 permissions:
