@@ -11,6 +11,7 @@ test('Table Storage atomic seed, CRUD, restart, concurrency and no reseed', { sk
   try {
     await Promise.all([initializeTable(client), initializeTable(client)]);
     const store = new TableTaskStore(client);
+    await store.initialize();
     assert.equal((await store.list()).length, 5);
     await store.check();
     const created = await store.create("O'Brien <script>literal</script>");
@@ -28,7 +29,7 @@ test('Table Storage atomic seed, CRUD, restart, concurrency and no reseed', { sk
     assert.ok(failure?.status === 'rejected' && failure.reason instanceof TaskLimitError);
     assert.equal((await store.list()).length, 100);
     await store.delete('10000000-0000-4000-8000-000000000001');
-    await initializeTable(client);
+    await new TableTaskStore(client).initialize();
     assert.equal((await store.list()).length, 99);
   } finally { await client.deleteTable(); }
 });

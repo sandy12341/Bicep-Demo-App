@@ -13,9 +13,9 @@ A disposable browser application for demonstrating Bicep and GitHub Actions. **P
 - Bicep bootstrap/application modules, PR checks, approved what-if, deployment and guarded teardown.
 
 ```text
-Browser -- HTTPS --> Linux App Service B1 -- managed identity --> Table Storage
+Browser -- HTTPS --> Linux App Service B1 -- VNet/private endpoint --> Table Storage
                                 |
-                                +-- Key Vault reference --> Key Vault
+                                +-- private endpoint/Key Vault reference --> Key Vault
 GitHub Actions -- OIDC --> Bicep + app ZIP deployment + live smoke tests
 ```
 
@@ -102,7 +102,7 @@ Bootstrap outputs non-secret IDs into ignored `artifacts/bootstrap.json`. Use ma
 
 Automation is **Contributor only on the dedicated application group** plus restricted role-assignment management for three roles: Storage Table Data Contributor, Key Vault Secrets User and Key Vault Secrets Officer. It is not subscription Owner. The restriction permits delegation of those data-access roles within that group, so this is not an identity for shared/production resources.
 
-The app and initializer each receive table-scoped Storage Table Data Contributor; only the app gets Key Vault Secrets User. Automation gets Secrets Officer on this vault. The bootstrap identity has federation only for the exact repository's `main` branch and `demo-preview` environment.
+The app and automation each receive table-scoped Storage Table Data Contributor; only the app gets Key Vault Secrets User. The app seeds its table privately on startup. Automation initializes the synthetic secret through the documented ARM management API, checking metadata and preserving any existing value; it never prints the value. Its existing Contributor role permits that management-plane operation. Automation also retains Secrets Officer on this vault, but GitHub runners have no private data-plane connectivity. The bootstrap identity has federation only for the exact repository's `main` branch and `demo-preview` environment.
 
 ### 2. Configure repository variables and protection
 
@@ -135,8 +135,8 @@ Merge to `main` or dispatch **Deploy core** on `main`. It:
 1. Validates and tests the source, emulator integration and desktop/mobile UI.
 2. Builds a production ZIP once on Linux; stores it as an artifact.
 3. Logs into Azure with OIDC, previews and applies Bicep.
-4. Initializes the sample table and synthetic secret, with bounded RBAC-propagation retries.
-5. Deploys the ZIP and verifies the live HTML, version, readiness, storage CRUD and secret resolution.
+4. Initializes the synthetic secret through ARM without opening the vault's public data endpoint.
+5. Deploys the ZIP; the app atomically seeds samples over its private table endpoint with bounded retries. Verifies live HTML, version, readiness, storage CRUD and secret resolution.
 6. Displays the clickable HTTPS application URL in the run summary.
 
 The deployment uses a built-in runtime, not a Docker image. Linux CI packaging avoids cross-platform dependency surprises. A brief interruption is possible on B1; no slots or zero-downtime guarantee.
@@ -167,7 +167,7 @@ What-if requires deployment-level permissions; it is not inherently a read-only 
 
 The `tasks` table contains a single `board` partition. UUID task rows and one private metadata row hold the task count/seed version. Transactional batches with conditional ETags keep the 100-task cap authoritative under concurrency.
 
-The initializer atomically creates the metadata and exactly five samples on first deployment. Repeated deployment preserves all edits, deletions and new tasks. There is no public reset/seed endpoint. To start over, deliberately destroy/recreate the disposable environment; ordinary app deployment never resets data.
+On production startup, the app atomically creates the metadata and exactly five samples over private connectivity if no seed marker exists. Startup retries dependency errors with sanitized logs and fails explicitly if initialization cannot complete; it does not serve a healthy API before initialization. Repeated deployment preserves all edits, deletions and new tasks. There is no public reset/seed endpoint. The standalone seed utility requires private network connectivity and the proper data role; GitHub does not run it. To start over, deliberately destroy/recreate the disposable environment; ordinary app deployment never resets data.
 
 Do not edit metadata or write tasks directly in Storage Explorer. The API owns the count invariant. Metadata/data inconsistencies produce explicit errors rather than an invented successful response.
 
@@ -197,11 +197,13 @@ Remove this demo's repository variables and preview environment manually. Subscr
 
 ## Cost and security boundaries
 
-- App Service B1 is the main fixed cost; Table Storage and Key Vault are usage-priced.
+- Fixed costs include App Service B1, two private endpoints and two private DNS zones; Table Storage and Key Vault are usage-priced.
 - West US 3 public retail Linux B1 rate checked during implementation: USD 0.017/hour, approximately USD 12.41 for 730 hours, before the additional usage charges below.
+- Two standard private endpoints at USD 0.01/hour each add approximately USD 14.60/month; two private DNS zones add USD 1/month. Estimated total baseline: **USD 28.01/month** at 730 hours, plus Private Link data, DNS queries and other usage/taxes. Rates/agreements can change. No NAT gateway or self-hosted runner is provisioned.
 - There is no SQL database charge. Refresh **West US 3** retail/subscription pricing before deploying; the earlier SQL-based estimate does not apply.
 - Add storage/secret operations, capacity, transfer and GitHub Actions/artifact charges.
-- Table Storage and Key Vault have public authenticated endpoints; there are no private endpoints/VNet integration.
+- Table Storage and Key Vault public network access is disabled. A dedicated VNet with an App Service-delegated /26 subnet and a separate endpoint subnet provides private access. Private DNS resolves their normal service names to private IPs inside the VNet. The public UI and SCM deployment endpoint remain accessible over HTTPS; SCM/FTP basic publishing remains disabled. No policy exemption or public data-plane exception is needed.
+- Teardown disconnects App Service VNet integration before deleting the group, including private endpoints, DNS zones, VNet and task data.
 - Fake data only. This anonymous task board is a disposable demonstration, not production authentication or tenant isolation.
 - Health/status never exposes secret values. Secret values are generated outside templates and not uploaded in artifacts.
 - `/healthz` is liveness; `/readyz` fails if Table Storage or the Key Vault reference is not ready.
