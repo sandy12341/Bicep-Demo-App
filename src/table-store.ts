@@ -50,6 +50,23 @@ export async function initializeTable(client: TableClient): Promise<void> {
 export class TableTaskStore implements TaskStore {
   constructor(private readonly client: TableClient = productionTableClient()) {}
 
+  async initialize(): Promise<void> {
+    for (let attempt = 1; attempt <= 8; attempt++) {
+      try {
+        await initializeTable(this.client);
+        console.log(JSON.stringify({ event: 'table_initialized' }));
+        return;
+      } catch (error) {
+        console.error(JSON.stringify({
+          event: 'table_initialization_failed', attempt,
+          name: error instanceof Error ? error.name : 'Unknown', statusCode: status(error),
+        }));
+        if (attempt === 8) throw error;
+        await new Promise((resolve) => setTimeout(resolve, 15_000));
+      }
+    }
+  }
+
   async list(): Promise<Task[]> {
     const tasks: Task[] = [];
     for await (const entity of this.client.listEntities<StoredTask>({

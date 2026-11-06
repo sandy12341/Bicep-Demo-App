@@ -22,7 +22,7 @@ resource account 'Microsoft.Storage/storageAccounts@2025-01-01' = {
     allowBlobPublicAccess: false
     allowSharedKeyAccess: false
     defaultToOAuthAuthentication: true
-    publicNetworkAccess: 'Enabled'
+    publicNetworkAccess: 'Disabled'
   }
 }
 
@@ -59,3 +59,4 @@ resource automationAccess 'Microsoft.Authorization/roleAssignments@2022-04-01' =
 output storageAccountName string = account.name
 output tableEndpoint string = account.properties.primaryEndpoints.table
 output tableName string = tasks.name
+output storageAccountId string = account.id

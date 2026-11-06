@@ -21,7 +21,7 @@ resource vault 'Microsoft.KeyVault/vaults@2025-05-01' = {
     enableSoftDelete: true
     softDeleteRetentionInDays: 7
     enablePurgeProtection: true
-    publicNetworkAccess: 'Enabled'
+    publicNetworkAccess: 'Disabled'
   }
   tags: tags
 }
@@ -48,3 +48,4 @@ resource automationSecretsOfficer 'Microsoft.Authorization/roleAssignments@2022-
 
 output vaultName string = vault.name
 output vaultUri string = vault.properties.vaultUri
+output vaultId string = vault.id

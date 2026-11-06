@@ -5,6 +5,12 @@ import { TableTaskStore } from './table-store.js';
 const localDemo = process.env.DEMO_MODE === 'true';
 if (localDemo && process.env.WEBSITE_SITE_NAME) throw new Error('In-memory DEMO_MODE is not allowed in Azure.');
 const store = localDemo ? new MemoryTaskStore() : new TableTaskStore();
+if (store instanceof TableTaskStore) {
+  try { await store.initialize(); } catch (error) {
+    console.error(JSON.stringify({ event: 'startup_failed', name: error instanceof Error ? error.name : 'Unknown' }));
+    process.exit(1);
+  }
+}
 const app = createApp(store, {
   title: process.env.APP_TITLE ?? 'Bicep Task Board',
   commit: process.env.APP_COMMIT ?? 'local',

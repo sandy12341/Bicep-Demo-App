@@ -1,6 +1,7 @@
 param instanceName string
 param suffix string
 param tags object
+param appSubnetId string
 
 var planName = 'asp-${instanceName}-${suffix}'
 var appName = 'app-${instanceName}-${suffix}'
@@ -32,6 +33,10 @@ resource app 'Microsoft.Web/sites@2025-03-01' = {
   properties: {
     serverFarmId: plan.id
     httpsOnly: true
+    virtualNetworkSubnetId: appSubnetId
+    outboundVnetRouting: {
+      allTraffic: true
+    }
     siteConfig: {
       linuxFxVersion: 'NODE|22-lts'
       minTlsVersion: '1.2'

@@ -9,6 +9,13 @@ $null = Assert-OwnedGroup $SubscriptionId $ResourceGroupName
 if ($ConfirmResourceGroup -cne $ResourceGroupName) { throw 'Teardown requires an exact resource group confirmation.' }
 if ($ResourceGroupName -match '(?i)bootstrap') { throw 'This command never deletes bootstrap groups. Use separately authorized cleanup.' }
 Write-Warning "Deleting $ResourceGroupName, including ALL task data. Key Vault remains soft-deleted and purge-protected."
+$apps = @(Invoke-Az @('webapp', 'list', '--subscription', $SubscriptionId, '--resource-group', $ResourceGroupName, '-o', 'json') | ConvertFrom-Json)
+foreach ($app in $apps) {
+    if ($app.virtualNetworkSubnetId) {
+        Invoke-Az @('webapp', 'vnet-integration', 'remove', '--subscription', $SubscriptionId,
+            '--resource-group', $ResourceGroupName, '--name', $app.name, '-o', 'none') | Out-Null
+    }
+}
 Invoke-Az @('group', 'delete', '--subscription', $SubscriptionId, '--name', $ResourceGroupName, '--yes') | Out-Null
 $exists = Invoke-Az @('group', 'exists', '--subscription', $SubscriptionId, '--name', $ResourceGroupName, '-o', 'tsv')
 if ($exists.Trim() -ne 'false') { throw 'Resource group still exists; teardown is not complete.' }

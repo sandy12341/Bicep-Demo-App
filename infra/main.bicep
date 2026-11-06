@@ -21,12 +21,22 @@ var tags = {
   instance: instanceName
 }
 
+module network 'modules/network.bicep' = {
+  name: 'network-${suffix}'
+  params: {
+    instanceName: instanceName
+    suffix: suffix
+    tags: tags
+  }
+}
+
 module app 'modules/app.bicep' = {
   name: 'app-${suffix}'
   params: {
     instanceName: instanceName
     suffix: suffix
     tags: tags
+    appSubnetId: network.outputs.appSubnetId
   }
 }
 
@@ -61,6 +71,19 @@ module settings 'modules/settings.bicep' = {
     vaultUri: vault.outputs.vaultUri
     appTitle: appTitle
     appCommit: appCommit
+  }
+}
+
+module privateEndpoints 'modules/private-endpoints.bicep' = {
+  name: 'private-endpoints-${suffix}'
+  params: {
+    instanceName: instanceName
+    suffix: suffix
+    tags: tags
+    vnetId: network.outputs.vnetId
+    subnetId: network.outputs.endpointSubnetId
+    storageAccountId: storage.outputs.storageAccountId
+    vaultId: vault.outputs.vaultId
   }
 }
 

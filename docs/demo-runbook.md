@@ -24,6 +24,7 @@ Show the dedicated resource group in Azure. Explain:
 - One App Service hosts both frontend and API; no containers or separate frontend service.
 - Table Storage avoids a SQL server, schema/administrator setup and database firewall.
 - Runtime identity receives access only to the tasks table.
+- Public UI requests reach the app; VNet integration, private endpoints and private DNS keep Table/Key Vault runtime access private. Both data services disable public networking.
 - Key Vault is a separate synthetic secrets demonstration; no password is needed for Table Storage.
 
 Customer message: "The environment and its permissions are reviewed, repeatable code."
@@ -69,7 +70,7 @@ Customer message: "Disposable environments need a verified cleanup path, not jus
 | Symptom | Evidence and response |
 |---|---|
 | OIDC login fails | Match repository, main ref/environment subject, tenant/client IDs; enforce preview environment branch restrictions |
-| Storage/KV initialization receives 403 | Confirm exact identity's table/vault data role and bounded propagation retries; do not enable account keys or broad roles as a shortcut |
+| Storage/KV initialization receives 403 | Confirm identity roles, private endpoint approval, DNS links and VNet integration. Check enforced policies; never enable public networking/account keys or broad roles as a shortcut. Table initialization runs inside the app; secret initialization uses ARM |
 | App readiness fails | Inspect sanitized App Service logs and Key Vault reference resolution; verify table initialization and runtime identity |
 | App URL responds but pipeline is red | Check live commit, readiness and CRUD; an ARM success alone is not application success |
 | Vault name cannot be reused | Purge protection is intentional; re-bootstrap with a fresh instance after teardown |
