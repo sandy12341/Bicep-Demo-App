@@ -2,9 +2,9 @@ param(
     [Parameter(Mandatory)][string]$SubscriptionId,
     [Parameter(Mandatory)][string]$GitHubRepository,
     [string]$Location = 'westus3',
-    [string]$ResourceGroupName = 'rg-taskboard-demo',
-    [string]$BootstrapResourceGroupName = 'rg-taskboard-bootstrap',
-    [ValidatePattern('^[a-z0-9]{3,12}$')][string]$InstanceName = 'tbcore1'
+    [string]$ResourceGroupName = 'rg-classroomready-demo',
+    [string]$BootstrapResourceGroupName = 'rg-classroomready-bootstrap',
+    [ValidatePattern('^[a-z0-9]{3,12}$')][string]$InstanceName = 'educr1'
 )
 . (Join-Path $PSScriptRoot 'Common.ps1')
 $account = Assert-Subscription $SubscriptionId

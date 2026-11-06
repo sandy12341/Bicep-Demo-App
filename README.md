@@ -1,15 +1,19 @@
-# Bicep Task Board
+# Classroom Ready: District Device Support
 
-A disposable browser application for demonstrating Bicep and GitHub Actions. **Phase 1 is the core. Phase 2 extensions are deferred.**
+A disposable K-12 district device-support application demonstrating Bicep and GitHub Actions through classroom device repair and loaner accountability. **Phase 1 is the core. Phase 2 extensions are deferred.**
+
+**Synthetic data only.** The schools are fictional, asset tags must begin `DEMO-`, and all visitors can modify records. Never enter student/staff identifiers or real school data. This is not a student-record system, a FERPA compliance claim, an authenticated service, or a production-ready district application.
 
 ## What you get
 
-- A responsive task board: add, complete, reopen, delete, filter, and view counts.
-- Five fake sample tasks, deployed commit SHA, and sanitized dependency status.
+- Structured device reporting, school/status filters, Open -> In repair -> Resolved workflow and reopening.
+- Six compatible loaners with exclusive assignment, explicit return, and return-before-resolution/deletion enforcement.
+- Three fictional schools, five synthetic incidents, district-wide operational counts, deployed commit SHA and sanitized dependency status.
+- A staged power-incident urgency PR and independent screen-policy PR, including tested patches and a reproducible merge-conflict walkthrough in [the runbook](docs/demo-runbook.md#pr-demonstration-power-incident-urgency).
 - One Node.js/TypeScript App Service hosting both UI and API.
 - **Azure Table Storage, not SQL:** no database server, SQL schema, passwords, or database firewall rules.
 - Passwordless storage access through managed identity and table-scoped RBAC.
-- A synthetic Key Vault secret to demonstrate separation of secrets from application code. It is not needed for task persistence and its value is never returned.
+- A synthetic Key Vault secret to demonstrate separation of secrets from application code. It is not needed for incident persistence and its value is never returned.
 - Bicep bootstrap/application modules, PR checks, approved what-if, deployment and guarded teardown.
 
 ```text
@@ -32,7 +36,9 @@ $env:DEMO_MODE = 'true'
 npm start
 ```
 
-Open **http://localhost:3000**. A local-mode banner explicitly identifies in-memory storage and the placeholder secret. Tasks reset on restart. Memory mode is refused on Azure App Service; Azure failures never silently switch to memory.
+Open **http://localhost:3000**. A local-mode banner explicitly identifies in-memory storage and the placeholder secret. Incidents and loaner assignments reset on restart, but survive browser refresh. Memory mode is refused on Azure App Service; Azure failures never silently switch to memory.
+
+The working tree is the **Standard-priority baseline**. Power/screen urgency is intentionally delivered as separate patches, not pre-enabled, so the PR produces a visible change. Follow the runbook to apply them on separate branches after committing the baseline with your authorization.
 
 Alternatively copy [.env.example](.env.example) to `.env`, then run:
 
@@ -76,6 +82,10 @@ The production-only dependency audit reports no advisories at validation time. T
 
 Bootstrap requires permissions to create resource groups, a managed identity/federation, Contributor assignments, and **conditional Role Based Access Control Administrator** assignments. A dedicated demo subscription is preferable. Check subscription policy, provider registrations (`Microsoft.Web`, `Microsoft.Storage`, `Microsoft.KeyVault`, `Microsoft.ManagedIdentity`), regional SKU availability and quota before provisioning.
 
+Use a **fresh EDU instance**, never the old task-board groups. Existing ownership tags remain; an additional `workload=classroom-ready` group tag is required by all operation scripts. Legacy groups are rejected before mutation, and legacy storage metadata is rejected before seeding. Do not retag/migrate/reset the old instance. Retain its original code and workflow configuration separately if it must continue receiving releases.
+
+No Azure resources, GitHub settings, commits or pushes are made by local validation. Before any push/merge that triggers deployment, verify the repository variables and OIDC identity target the new EDU groups. With read-only GitHub access, obtain collaborator write access or use an independently authorized repository; signing into VS Code does not switch GitHub CLI credentials.
+
 Create/select the intended GitHub repository and push this code only after authorizing that separately. The scripts do not create a remote repository, commit, or push.
 
 ```powershell
@@ -94,9 +104,9 @@ For direct Bicep deployment, supply `githubSubjectPrefix` from
 `gh api repos/<owner>/<repository>/actions/oidc/customization/sub`
 (`sub_claim_prefix` for immutable subjects; `repo:<owner>/<repository>` for legacy subjects).
 
-- Application group: `rg-taskboard-demo`
-- Bootstrap identity group: `rg-taskboard-bootstrap`
-- Instance: `tbcore1`
+- Application group: `rg-classroomready-demo`
+- Bootstrap identity group: `rg-classroomready-bootstrap`
+- Instance: `educr1`
 
 Bootstrap outputs non-secret IDs into ignored `artifacts/bootstrap.json`. Use matching group and instance inputs for later steps.
 
@@ -114,8 +124,8 @@ Set Actions **repository variables** (IDs are not passwords):
 | `AZURE_TENANT_ID` | Bootstrap `tenantId.value` |
 | `AZURE_CLIENT_ID` | Bootstrap `automationClientId.value` |
 | `AZURE_PRINCIPAL_ID` | Bootstrap `automationPrincipalId.value` (object ID, not client ID) |
-| `AZURE_RESOURCE_GROUP` | `rg-taskboard-demo` or your chosen group |
-| `DEMO_INSTANCE` | `tbcore1` or your chosen instance |
+| `AZURE_RESOURCE_GROUP` | `rg-classroomready-demo` or your fresh EDU group |
+| `DEMO_INSTANCE` | `educr1` or your fresh EDU instance |
 
 Create the **`demo-preview` GitHub environment**:
 
@@ -136,7 +146,7 @@ Merge to `main` or dispatch **Deploy core** on `main`. It:
 2. Builds a production ZIP once on Linux; stores it as an artifact.
 3. Logs into Azure with OIDC, previews and applies Bicep.
 4. Initializes the synthetic secret through ARM without opening the vault's public data endpoint.
-5. Deploys the ZIP; the app atomically seeds samples over its private table endpoint with bounded retries. Verifies live HTML, version, readiness, storage CRUD and secret resolution.
+5. Deploys the ZIP; the app atomically seeds samples over its private table endpoint with bounded retries. Verifies live HTML, version, readiness, incident lifecycle, reciprocal loaner persistence/return and secret resolution. Smoke checks create and clean up only their own incident; one available Chromebook loaner and spare incident capacity are required.
 6. Displays the clickable HTTPS application URL in the run summary.
 
 The deployment uses a built-in runtime, not a Docker image. Linux CI packaging avoids cross-platform dependency surprises. A brief interruption is possible on B1; no slots or zero-downtime guarantee.
@@ -151,9 +161,9 @@ The operation scripts can also be run by an identity with the same required mana
 npm ci
 npm run build
 .\scripts\Package.ps1
-.\scripts\Preview.ps1 -SubscriptionId $subscription -ResourceGroupName rg-taskboard-demo `
+.\scripts\Preview.ps1 -SubscriptionId $subscription -ResourceGroupName rg-classroomready-demo `
   -AutomationPrincipalId '<automation-object-id>' -AppCommit manual
-.\scripts\Deploy.ps1 -SubscriptionId $subscription -ResourceGroupName rg-taskboard-demo `
+.\scripts\Deploy.ps1 -SubscriptionId $subscription -ResourceGroupName rg-classroomready-demo `
   -AutomationPrincipalId '<automation-object-id>' -PackagePath artifacts\app.zip -AppCommit manual
 ```
 
@@ -169,32 +179,49 @@ What-if requires deployment-level permissions; it is not inherently a read-only 
 
 ## Data behavior
 
-The `tasks` table contains a single `board` partition. UUID task rows and one private metadata row hold the task count/seed version. Transactional batches with conditional ETags keep the 100-task cap authoritative under concurrency.
+The existing Azure table name `tasks` is retained to avoid changing table-scoped RBAC. Its single `board` partition contains `incident:<UUID>` rows, `loaner:<UUID>` rows and private metadata with seed version 2. Priority is computed by the backend when returning incidents; it is never stored or used to rewrite timestamps.
 
-On production startup, the app atomically creates the metadata and exactly five samples over private connectivity if no seed marker exists. Startup retries dependency errors with sanitized logs and fails explicitly if initialization cannot complete; it does not serve a healthy API before initialization. Repeated deployment preserves all edits, deletions and new tasks. There is no public reset/seed endpoint. The standalone seed utility requires private network connectivity and the proper data role; GitHub does not run it. To start over, deliberately destroy/recreate the disposable environment; ordinary app deployment never resets data.
+Atomic ETag-guarded transactions enforce the 100-incident cap and reciprocal loaner assignment/return. Because the SDK's public batch-delete API has no conditional-delete option, assignment also updates metadata: deletion reads metadata before the incident and conditions its transaction on that version. An assignment racing a stale deletion therefore cannot orphan a loaner.
 
-Do not edit metadata or write tasks directly in Storage Explorer. The API owns the count invariant. Metadata/data inconsistencies produce explicit errors rather than an invented successful response.
+On production startup, the app atomically creates metadata, five incidents and six loaners only in a fresh empty partition. Legacy metadata and nonempty data without a marker are rejected. Repeated deployment preserves edits, deletions, assignments and new incidents. There is no public reset/seed endpoint. The standalone seed utility requires private network connectivity and the proper data role; GitHub does not run it. Do not edit metadata or write rows directly in Storage Explorer.
+
+### API
+
+`/api/tasks` is intentionally retired for this new-instance application.
+
+| Method | Route | Behavior |
+|---|---|---|
+| GET | `/api/catalog` | Controlled schools, device types, issue categories and statuses |
+| GET | `/api/incidents` | All incidents with derived `priority` (`standard`/`urgent`) |
+| POST | `/api/incidents` | Only `schoolId`, `assetTag`, `deviceType`, `category`; returns Open incident |
+| PATCH | `/api/incidents/:id` | Only `status`: `open`, `in-repair`, `resolved`; ordered transitions/reopening |
+| DELETE | `/api/incidents/:id` | Delete an incident only without an outstanding loaner |
+| GET | `/api/loaners` | Six loaners with reciprocal `incidentId`; empty string means available |
+| POST | `/api/incidents/:id/loaner` | Only `loanerId`; compatible exclusive assignment to an unresolved incident |
+| DELETE | `/api/incidents/:id/loaner` | Return the incident's assigned loaner |
+
+Validation returns 400, missing records 404, and invalid transitions/assignment conflicts/cap 409. Dependency failures return sanitized 500 responses. IDs are UUIDs, and tags are `DEMO-` plus 1-20 uppercase letters, numbers or hyphens. Filters are client-side; dashboard counts are explicitly district-wide.
 
 ## Teardown and recreation
 
 Dispatch **Destroy core** from `main` and type the exact application group name. Or:
 
 ```powershell
-.\scripts\Destroy.ps1 -SubscriptionId $subscription -ResourceGroupName rg-taskboard-demo `
-  -ConfirmResourceGroup rg-taskboard-demo
+.\scripts\Destroy.ps1 -SubscriptionId $subscription -ResourceGroupName rg-classroomready-demo `
+  -ConfirmResourceGroup rg-classroomready-demo
 ```
 
-This deletes the **whole dedicated application group and its task data**, after checking its ownership tag; it verifies group disappearance. Never add unrelated/shared resources to this group.
+This deletes the **whole dedicated EDU application group and its incident/loaner data**, after checking both ownership and workload tags; it verifies group disappearance. Never add unrelated/shared resources to this group.
 
 The bootstrap identity/group is deliberately retained. Key Vault is soft-deleted and purge-protected for seven days; immediate name reuse/permanent purge is not available. Stopping only the app does not stop App Service plan billing.
 
-To redeploy, rerun bootstrap to recreate the group and its scoped permissions. Choose a **new instance**, for example `tbcore2`, and update `DEMO_INSTANCE` before deployment to avoid the retained vault name. Normal incremental deployments do not delete resources removed from Bicep; changing instance names in a still-existing group can leave old resources billing.
+To redeploy, rerun bootstrap to recreate the group and its scoped permissions. Choose a **new instance**, for example `educr2`, and update `DEMO_INSTANCE` before deployment to avoid the retained vault name. Normal incremental deployments do not delete resources removed from Bicep; changing instance names in a still-existing group can leave old resources billing.
 
 For separately approved full cleanup after the app group is gone:
 
 ```powershell
-.\scripts\CleanupBootstrap.ps1 -SubscriptionId $subscription -ResourceGroupName rg-taskboard-demo `
-  -BootstrapResourceGroupName rg-taskboard-bootstrap -ConfirmBootstrapGroup rg-taskboard-bootstrap
+.\scripts\CleanupBootstrap.ps1 -SubscriptionId $subscription -ResourceGroupName rg-classroomready-demo `
+  -BootstrapResourceGroupName rg-classroomready-bootstrap -ConfirmBootstrapGroup rg-classroomready-bootstrap
 ```
 
 Remove this demo's repository variables and preview environment manually. Subscription deployment-history records may remain; these are not running compute resources. Inspect Azure for soft-deleted vaults and retained platform artifacts.
@@ -207,13 +234,13 @@ Remove this demo's repository variables and preview environment manually. Subscr
 - There is no SQL database charge. Refresh **West US 3** retail/subscription pricing before deploying; the earlier SQL-based estimate does not apply.
 - Add storage/secret operations, capacity, transfer and GitHub Actions/artifact charges.
 - Table Storage and Key Vault public network access is disabled. A dedicated VNet with an App Service-delegated /26 subnet and a separate endpoint subnet provides private access. Private DNS resolves their normal service names to private IPs inside the VNet. The public UI and SCM deployment endpoint remain accessible over HTTPS; SCM/FTP basic publishing remains disabled. No policy exemption or public data-plane exception is needed.
-- Teardown disconnects App Service VNet integration before deleting the group, including private endpoints, DNS zones, VNet and task data.
-- Fake data only. This anonymous task board is a disposable demonstration, not production authentication or tenant isolation.
+- Teardown disconnects App Service VNet integration before deleting the group, including private endpoints, DNS zones, VNet and incident/loaner data.
+- Fake data only. This anonymous district-support demo is not production authentication or tenant isolation. Production use requires separately scoped identity, authorization, audit, retention, accessibility and privacy reviews.
 - Health/status never exposes secret values. Secret values are generated outside templates and not uploaded in artifacts.
 - `/healthz` is liveness; `/readyz` fails if Table Storage or the Key Vault reference is not ready.
 
 ## Phase 2 (not included yet)
 
-Separate dev/test and same-artifact promotion, application rollback/drift scenarios, **an independent storage lifecycle deployment stack** (not the core task datastore), stack deny settings, isolated Azure Policy and optional Application Insights. None is provisioned by Phase 1.
+Separate dev/test and same-artifact promotion, application rollback/drift scenarios, **an independent storage lifecycle deployment stack** (not the core incident datastore), stack deny settings, isolated Azure Policy and optional Application Insights. None is provisioned by Phase 1.
 
 References: [Tables SDK](https://learn.microsoft.com/en-us/javascript/api/overview/azure/data-tables-readme), [Table Entra authorization](https://learn.microsoft.com/en-us/azure/storage/tables/authorize-access-azure-active-directory), [Key Vault references](https://learn.microsoft.com/en-us/azure/app-service/app-service-key-vault-references), [GitHub OIDC](https://learn.microsoft.com/en-us/azure/developer/github/connect-from-azure-openid-connect).

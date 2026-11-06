@@ -3,7 +3,7 @@ targetScope = 'resourceGroup'
 @description('Short, lowercase deployment instance identifier.')
 @minLength(3)
 @maxLength(12)
-param instanceName string = 'tbcore1'
+param instanceName string = 'educr1'
 
 @description('Object ID of the user-assigned GitHub automation identity.')
 param automationPrincipalId string
@@ -12,11 +12,12 @@ param automationPrincipalId string
 param appCommit string
 
 @description('Application title shown by the app.')
-param appTitle string = 'Taskboard Demo'
+param appTitle string = 'Classroom Ready'
 
 var suffix = uniqueString(resourceGroup().id, instanceName)
 var tags = {
   demo: 'bicep-taskboard'
+  workload: 'classroom-ready'
   environment: 'demo'
   instance: instanceName
 }
