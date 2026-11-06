@@ -23,7 +23,7 @@ Save-DemoJson $outputs 'deployment.json'
 & (Join-Path $PSScriptRoot 'Initialize.ps1') -SubscriptionId $SubscriptionId -ResourceGroupName $ResourceGroupName
 Invoke-Az @('webapp', 'deploy', '--subscription', $SubscriptionId, '--resource-group', $ResourceGroupName,
     '--name', $outputs.appName.value, '--src-path', (Resolve-Path $PackagePath).Path, '--type', 'zip',
-    '--clean', 'true', '--restart', 'true', '-o', 'none') | Out-Null
+    '--clean', 'true', '--restart', 'true', '--track-status', 'false', '-o', 'none') | Out-Null
 & (Join-Path $PSScriptRoot 'Smoke.ps1') -AppUrl $outputs.appUrl.value -ExpectedCommit $AppCommit
 Write-Host "Verified application: $($outputs.appUrl.value)"
 if ($env:GITHUB_STEP_SUMMARY) {

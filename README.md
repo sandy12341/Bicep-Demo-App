@@ -141,6 +141,10 @@ Merge to `main` or dispatch **Deploy core** on `main`. It:
 
 The deployment uses a built-in runtime, not a Docker image. Linux CI packaging avoids cross-platform dependency surprises. A brief interruption is possible on B1; no slots or zero-downtime guarantee.
 
+ZIP deployment disables Azure CLI's extra Linux startup tracker, which can remain pending
+after a successful rollout. Deployment errors still fail the command; the bounded smoke
+checks independently require the exact release, healthy dependencies and real CRUD before success.
+
 The operation scripts can also be run by an identity with the same required management/data permissions:
 
 ```powershell
