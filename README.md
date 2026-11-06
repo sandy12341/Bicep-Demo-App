@@ -87,6 +87,13 @@ $repository = '<owner>/<repository>'
 
 Bootstrap asks you to type the application group's exact name. Defaults:
 
+Authenticate GitHub CLI (`gh auth login`) with repository access first. Bootstrap reads
+the repository OIDC configuration and uses its exact subject prefix, including immutable
+owner/repository IDs when enabled. Custom subject templates are rejected explicitly.
+For direct Bicep deployment, supply `githubSubjectPrefix` from
+`gh api repos/<owner>/<repository>/actions/oidc/customization/sub`
+(`sub_claim_prefix` for immutable subjects; `repo:<owner>/<repository>` for legacy subjects).
+
 - Application group: `rg-taskboard-demo`
 - Bootstrap identity group: `rg-taskboard-bootstrap`
 - Instance: `tbcore1`

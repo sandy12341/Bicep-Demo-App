@@ -1,8 +1,7 @@
 targetScope = 'resourceGroup'
 
 param instanceName string
-param githubRepositoryOwner string
-param githubRepositoryName string
+param githubSubjectPrefix string
 param tags object
 
 resource automation 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' = {
@@ -19,7 +18,7 @@ resource deployFederatedCredential 'Microsoft.ManagedIdentity/userAssignedIdenti
       'api://AzureADTokenExchange'
     ]
     issuer: 'https://token.actions.githubusercontent.com'
-    subject: 'repo:${githubRepositoryOwner}/${githubRepositoryName}:ref:refs/heads/main'
+    subject: '${githubSubjectPrefix}:ref:refs/heads/main'
   }
 }
 
@@ -34,7 +33,7 @@ resource previewFederatedCredential 'Microsoft.ManagedIdentity/userAssignedIdent
       'api://AzureADTokenExchange'
     ]
     issuer: 'https://token.actions.githubusercontent.com'
-    subject: 'repo:${githubRepositoryOwner}/${githubRepositoryName}:environment:demo-preview'
+    subject: '${githubSubjectPrefix}:environment:demo-preview'
   }
 }
 

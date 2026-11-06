@@ -6,8 +6,8 @@ param location string = 'westus3'
 @description('Lowercase deployment instance identifier.')
 param instanceName string = 'tbcore1'
 
-@description('Exact GitHub repository owner/name.')
-param githubRepository string
+@description('Exact repository OIDC subject prefix returned by the GitHub OIDC customization API.')
+param githubSubjectPrefix string
 
 param resourceGroupName string = 'rg-taskboard-demo'
 param bootstrapResourceGroupName string = 'rg-taskboard-bootstrap'
@@ -35,8 +35,7 @@ module automation 'modules/bootstrap-identity.bicep' = {
   scope: bootstrapRg
   params: {
     instanceName: instanceName
-    githubRepositoryOwner: split(githubRepository, '/')[0]
-    githubRepositoryName: split(githubRepository, '/')[1]
+    githubSubjectPrefix: githubSubjectPrefix
     tags: tags
   }
 }
