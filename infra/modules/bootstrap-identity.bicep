@@ -26,6 +26,9 @@ resource deployFederatedCredential 'Microsoft.ManagedIdentity/userAssignedIdenti
 resource previewFederatedCredential 'Microsoft.ManagedIdentity/userAssignedIdentities/federatedIdentityCredentials@2023-01-31' = {
   name: 'github-preview-demo'
   parent: automation
+  dependsOn: [
+    deployFederatedCredential
+  ]
   properties: {
     audiences: [
       'api://AzureADTokenExchange'
